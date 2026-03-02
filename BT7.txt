@@ -1,0 +1,216 @@
+CREATE USER C##QLNV IDENTIFIED BY 123;
+
+GRANT CONNECT, RESOURCE TO C##QLNV;
+GRANT CREATE TABLE TO C##QLNV;
+GRANT CREATE PROCEDURE TO C##QLNV;
+ALTER USER C##QLNV QUOTA UNLIMITED ON USERS;
+
+CONNECT C##QLNV/123;
+
+CREATE TABLE tblChucVu (
+    MaCV   VARCHAR2(10) PRIMARY KEY,
+    TenCV  VARCHAR2(100)
+);
+
+CREATE TABLE tblNhanVien (
+    MaNV        VARCHAR2(10) PRIMARY KEY,
+    MaCV        VARCHAR2(10),
+    TenNV       VARCHAR2(100),
+    NgaySinh    DATE,
+    LuongCanBan NUMBER,
+    NgayCong    NUMBER,
+    PhuCap      NUMBER,
+    CONSTRAINT fk_macv FOREIGN KEY (MaCV)
+    REFERENCES tblChucVu(MaCV)
+);
+
+INSERT INTO tblChucVu VALUES ('CV01','Giam doc');
+INSERT INTO tblChucVu VALUES ('CV02','Pho giam doc');
+INSERT INTO tblChucVu VALUES ('CV03','Ke toan');
+INSERT INTO tblChucVu VALUES ('CV04','Nhan vien');
+
+COMMIT;
+
+INSERT INTO tblNhanVien VALUES 
+('NV01','CV01','Nguyen Van A',TO_DATE('01/01/1990','DD/MM/YYYY'),5000000,26,1000000);
+
+INSERT INTO tblNhanVien VALUES 
+('NV02','CV03','Tran Thi B',TO_DATE('10/05/1995','DD/MM/YYYY'),4000000,24,500000);
+
+INSERT INTO tblNhanVien VALUES 
+('NV03','CV04','Le Van C',TO_DATE('20/03/1998','DD/MM/YYYY'),3500000,25,300000);
+
+COMMIT;
+
+CREATE OR REPLACE PROCEDURE SP_Them_Nhan_Vien(
+    p_MaNV VARCHAR2,
+    p_MaCV VARCHAR2,
+    p_TenNV VARCHAR2,
+    p_NgaySinh DATE,
+    p_LuongCB NUMBER,
+    p_NgayCong NUMBER,
+    p_PhuCap NUMBER
+)
+AS
+    v_dem NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_dem
+    FROM tblChucVu
+    WHERE MaCV = p_MaCV;
+
+    IF v_dem = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('MaCV khong ton tai!');
+    ELSE
+        INSERT INTO tblNhanVien
+        VALUES (p_MaNV,p_MaCV,p_TenNV,p_NgaySinh,
+                p_LuongCB,p_NgayCong,p_PhuCap);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Them nhan vien thanh cong!');
+    END IF;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE SP_CapNhat_Nhan_Vien(
+    p_MaNV VARCHAR2,
+    p_MaCV VARCHAR2,
+    p_TenNV VARCHAR2,
+    p_NgaySinh DATE,
+    p_LuongCB NUMBER,
+    p_NgayCong NUMBER,
+    p_PhuCap NUMBER
+)
+AS
+    v_dem NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_dem
+    FROM tblChucVu
+    WHERE MaCV = p_MaCV;
+
+    IF v_dem = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('MaCV khong ton tai!');
+    ELSE
+        UPDATE tblNhanVien
+        SET MaCV = p_MaCV,
+            TenNV = p_TenNV,
+            NgaySinh = p_NgaySinh,
+            LuongCanBan = p_LuongCB,
+            NgayCong = p_NgayCong,
+            PhuCap = p_PhuCap
+        WHERE MaNV = p_MaNV;
+
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Cap nhat thanh cong!');
+    END IF;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE SP_LuongLN
+AS
+BEGIN
+    FOR r IN (
+        SELECT MaNV, TenNV,
+        (LuongCanBan * NgayCong + PhuCap) AS Luong
+        FROM tblNhanVien
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            r.MaNV || ' - ' || r.TenNV ||
+            ' - Luong: ' || r.Luong
+        );
+    END LOOP;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE sp_them_nhan_vien1(
+    p_MaNV VARCHAR2,
+    p_MaCV VARCHAR2,
+    p_TenNV VARCHAR2,
+    p_NgaySinh DATE,
+    p_LuongCB NUMBER,
+    p_NgayCong NUMBER,
+    p_PhuCap NUMBER,
+    p_KQ OUT NUMBER
+)
+AS
+    v_dem NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_dem
+    FROM tblChucVu
+    WHERE MaCV = p_MaCV;
+
+    IF v_dem = 0 THEN
+        p_KQ := 0;
+    ELSE
+        INSERT INTO tblNhanVien
+        VALUES (p_MaNV,p_MaCV,p_TenNV,p_NgaySinh,
+                p_LuongCB,p_NgayCong,p_PhuCap);
+        COMMIT;
+        p_KQ := 1;
+    END IF;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE sp_them_nhan_vien2(
+    p_MaNV VARCHAR2,
+    p_MaCV VARCHAR2,
+    p_TenNV VARCHAR2,
+    p_NgaySinh DATE,
+    p_LuongCB NUMBER,
+    p_NgayCong NUMBER,
+    p_PhuCap NUMBER,
+    p_KQ OUT NUMBER
+)
+AS
+    v_demNV NUMBER := 0;
+    v_demCV NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_demNV
+    FROM tblNhanVien
+    WHERE MaNV = p_MaNV;
+
+    IF v_demNV > 0 THEN
+        p_KQ := 0;
+    ELSE
+        SELECT COUNT(*) INTO v_demCV
+        FROM tblChucVu
+        WHERE MaCV = p_MaCV;
+
+        IF v_demCV = 0 THEN
+            p_KQ := 1;
+        ELSE
+            INSERT INTO tblNhanVien
+            VALUES (p_MaNV,p_MaCV,p_TenNV,p_NgaySinh,
+                    p_LuongCB,p_NgayCong,p_PhuCap);
+            COMMIT;
+            p_KQ := 2;
+        END IF;
+    END IF;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE sp_capnhat_ngaysinh(
+    p_MaNV VARCHAR2,
+    p_NgaySinh DATE,
+    p_KQ OUT NUMBER
+)
+AS
+    v_dem NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_dem
+    FROM tblNhanVien
+    WHERE MaNV = p_MaNV;
+
+    IF v_dem = 0 THEN
+        p_KQ := 0;
+    ELSE
+        UPDATE tblNhanVien
+        SET NgaySinh = p_NgaySinh
+        WHERE MaNV = p_MaNV;
+
+        COMMIT;
+        p_KQ := 1;
+    END IF;
+END;
+/
+
+SET SERVEROUTPUT ON;
